@@ -1,0 +1,16 @@
+<!-- home.html -->
+
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Daily Learnings</h1>
+    <ul>
+        {% for learning in learnings %}
+            <li>
+                <strong>{{ learning.date }}:</strong> {{ learning.description }}
+            </li>
+        {% empty %}
+            <li>No learnings available yet.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

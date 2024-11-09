@@ -1,0 +1,66 @@
+/* Define global variables with a modern color scheme */
+:root {
+    --primary-color: #0d6efd;        /* Dark Blue */
+    --secondary-color: #6c757d;      /* Muted Gray */
+    --background-color: #f5f7fa;     /* Soft Light Gray */
+    --text-color: #212529;           /* Near-Black Text */
+    --link-color: #0dcaf0;           /* Cyan for links */
+    --hover-color: #0a58ca;          /* Darker Blue on hover */
+}
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+
+/* Apply variables to body and other elements */
+body {
+    font-family: 'Open Sans', sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* Navigation links */
+.nav-link {
+    color: var(--link-color) !important;
+    transition: color 0.3s ease;
+}
+
+.nav-link:hover {
+    color: var(--hover-color) !important;
+}
+
+/* Buttons */
+.btn-dark {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: white;
+    transition: background-color 0.3s ease;
+}
+
+.btn-dark:hover {
+    background-color: var(--hover-color) !important;
+    border-color: var(--hover-color) !important;
+}
+
+/* Links */
+a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--hover-color);
+    text-decoration: underline;
+}
+
+/* Responsive styles for mobile */
+@media (max-width: 768px) {
+    :root {
+        --primary-color: #0a58ca;
+        --secondary-color: #495057;
+        --background-color: #f8f9fa;
+        --text-color: #343a40;
+        --link-color: #0dcaf0;
+        --hover-color: #084298;
+    }
+}

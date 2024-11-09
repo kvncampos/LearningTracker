@@ -1,0 +1,13 @@
+# development/docker-compose.yml
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: development/Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../src:/app
+    env_file:
+      - ../.env
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
