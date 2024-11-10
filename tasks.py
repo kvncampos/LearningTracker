@@ -1,11 +1,9 @@
 # tasks.py
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
 from invoke import task
 
-# LOGIN TO HEROKU BEFORE STARTING ANY HEROKU TASKS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,94 +12,144 @@ load_dotenv()
 # CONSTANT VARS
 # ------------------------------------------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
-SERVICE_NAME = "web"
-
-DOCKER_COMPOSE_FILE = Path("development") / "docker-compose.yml"
+DJANGO_ENV = os.getenv('DJANGO_ENV', 'development')
+# Configuration
+DOCKER_FILE = "docker-compose-dev.yml" if DJANGO_ENV == "development" else "docker-compose.yml"
+DOCKER_COMPOSE_FILE = Path("development") / DOCKER_FILE
+FRONTEND_DIR = 'frontend'
+BACKEND_DIR = 'backend'
+SERVICE_NAME = "web"  # Ensure this matches your docker-compose.yml service name
 CONTAINER_NAME = "dev-learningtracker-web-1"
 DB_CONTAINER = "dev-learningtracker-db"
 LOCAL_RUFF_EXCLUDE = (
-    "./src/tests/*,./app/movies/migrations/*,tasks.py,./admin/settings.py"
+    "./backend/tests/*,./backend/learningtracker/migrations,tasks.py,./backend/admin/settings.py"
 )
-# ------------------------------------------------------------------------------------
-# DOCKER COMPOSE TASKS
-# ------------------------------------------------------------------------------------
-@task
-def down(ctx, volumes=False):
-    """Stop and remove Docker containers, with optional volume removal."""
-    command = f"docker-compose -f {DOCKER_COMPOSE_FILE} down"
-    if volumes:
-        command += " -v"
-    ctx.run(command, pty=True)
-
+################################################################################
+#                               Backend Tasks
+################################################################################
 
 @task
-def start(ctx):
-    """Start Docker containers in detached mode."""
+def build_backend(ctx):
+    """Build the Django backend Docker image."""
+    print("Building Django backend Docker image...")
+    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} build", pty=True)
+
+@task
+def start_backend(ctx):
+    """Start the Django backend and database."""
+    print("Starting Django backend...")
     ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} up -d", pty=True)
 
+@task
+def stop_backend(ctx):
+    """Stop the Django backend."""
+    print("Stopping Django backend...")
+    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} down", pty=True)
 
 @task
-def debug(ctx):
-    """Start Docker containers in attached mode with rebuild."""
-    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} up --build", pty=True)
-
-
-@task
-def stop(ctx):
-    """Stop running Docker containers."""
-    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} stop", pty=True)
-
-
-@task
-def restart(ctx):
-    """Restart Docker containers."""
-    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} restart", pty=True)
-
-
-@task
-def logs(ctx, follow=False):
-    """Show Docker container logs, with optional following."""
-    command = f"docker-compose -f {DOCKER_COMPOSE_FILE} logs"
-    if follow:
-        command += " -f"
-    ctx.run(command, pty=True)
-
-
-@task
-def build(ctx, no_cache=False):
-    """Build Docker images."""
-    command = f"docker-compose -f {DOCKER_COMPOSE_FILE} build"
-    if no_cache:
-        command += " --no-cache"
-    ctx.run(command, pty=True)
-
-
-@task
-def build_no_cache(ctx):
-    """Build Docker images without using cache."""
-    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} build --no-cache", pty=True)
-
-
-@task
-def remove_volumes(ctx):
-    """Remove all Docker volumes."""
-    ctx.run("docker volume prune -f", pty=True)
-
-
-@task
-def destroy(ctx):
-    """Stop and remove Docker containers, and remove all associated volumes."""
-    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} down -v", pty=True)
-    ctx.run("docker volume prune -f", pty=True)
-
+def start_backend_debug(ctx):
+    """
+    Start Django in debug mode (without Docker) for local development.
+    """
+    with ctx.cd(BACKEND_DIR):
+        print("Starting Django backend in debug mode...")
+        ctx.run("python manage.py runserver 0.0.0.0:8000", pty=True)
 
 @task
 def createsuperuser(ctx):
-    """Run 'python manage.py createsuperuser' inside the Docker container."""
-    ctx.run(
-        f"docker-compose -f {DOCKER_COMPOSE_FILE} exec {SERVICE_NAME} python /app/manage.py createsuperuser",
-        pty=True,
-    )
+    """Create a Django superuser."""
+    with ctx.cd(BACKEND_DIR):
+        ctx.run("python manage.py createsuperuser", pty=True)
+
+@task
+def backend_shell(ctx):
+    """Open a Django shell in the Docker container."""
+    ctx.run("docker-compose exec backend python manage.py shell", pty=True)
+
+################################################################################
+#                               FrontEnd Tasks
+################################################################################
+@task
+def install_frontend(ctx):
+    """Install frontend dependencies."""
+    with ctx.cd(FRONTEND_DIR):
+        print("Installing frontend dependencies...")
+        ctx.run("npm install", pty=True)
+
+@task
+def start_frontend(ctx):
+    """Start the React frontend development server."""
+    with ctx.cd(FRONTEND_DIR):
+        print("Starting React frontend...")
+        ctx.run("npm start", pty=True)
+
+@task
+def build_frontend(ctx):
+    """Build the React frontend for production."""
+    with ctx.cd(FRONTEND_DIR):
+        print("Building React frontend...")
+        ctx.run("npm run build", pty=True)
+
+@task
+def stop_frontend(ctx):
+    """Stop the React frontend."""
+    print("Stopping React frontend...")
+    # Find and kill the process running on port 3000 (React dev server)
+    ctx.run("lsof -t -i :3000 | xargs kill -9", warn=True, pty=True)
+
+@task
+def start_frontend_debug(ctx):
+    """
+    Start React frontend in debug mode (with hot-reloading).
+    """
+    with ctx.cd(FRONTEND_DIR):
+        print("Starting React frontend in debug mode...")
+        ctx.run("npm start", pty=True)
+
+@task
+def clean_frontend(ctx):
+    """Clean the frontend build directory."""
+    with ctx.cd(FRONTEND_DIR):
+        print("Cleaning frontend build directory...")
+        ctx.run("rm -rf build", pty=True)
+
+################################################################################
+#                           Full Project Tasks
+################################################################################
+@task
+def start(ctx):
+    """Start both the Django backend and React frontend."""
+    print("Starting backend and frontend...")
+    start_backend(ctx)
+    start_frontend(ctx)
+
+@task
+def stop(ctx):
+    """Stop both the Django backend and React frontend."""
+    print("Stopping backend and frontend...")
+    stop_backend(ctx)
+    stop_frontend(ctx)
+
+@task
+def build(ctx):
+    """Build both the Django backend and React frontend."""
+    build_backend(ctx)
+    build_frontend(ctx)
+
+@task
+def install(ctx):
+    """Install dependencies for both backend and frontend."""
+    install_frontend(ctx)
+    print("Dependencies installed for frontend.")
+
+@task
+def debug(ctx):
+    """
+    Start both Django backend and React frontend in debug mode.
+    """
+    print("Starting both backend and frontend in debug mode...")
+    ctx.run("invoke start-backend-debug & invoke start-frontend-debug", pty=True)
+
 # ------------------------------------------------------------------------------------
 # DOCKER CLI COMMANDS
 # ------------------------------------------------------------------------------------
@@ -170,7 +218,7 @@ def pytest(ctx, coverage=False, testname=None):
 
     # Add coverage option if specified
     if coverage:
-        command += " --cov=src --cov-report=term-missing"
+        command += " --cov=backend --cov-report=term-missing"
 
     # Add test name filter if specified
     if testname:
@@ -178,3 +226,4 @@ def pytest(ctx, coverage=False, testname=None):
 
     # Run the command
     ctx.run(command, pty=True)
+

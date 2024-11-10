@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import sys
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,16 +41,47 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "learningtracker",
+    "corsheaders",
 ]
 
+# ------------------------------------
+# CORS Settings
+# ------------------------------------
+# Determine the environment (default to 'development')
+DJANGO_ENV = os.getenv('DJANGO_ENV', 'development')
+
+# CORS Settings
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+]
+
+CSRF_COOKIE_SECURE = False  # Only True if using HTTPS
+CSRF_COOKIE_SAMESITE = 'None'  # Allow cross-origin requests
+CSRF_COOKIE_HTTPONLY = False
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+]
+
+# Session Settings
+SESSION_COOKIE_AGE = 5 * 60 if DJANGO_ENV == 'production' else 30 * 60
+
+# Expire the session when the browser is closed
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Use Django’s session-based authentication
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+SESSION_SAVE_EVERY_REQUEST = True  # Reset the session timeout on each request
+
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'corsheaders.middleware.CorsMiddleware',                 # CORS middleware
+    'django.middleware.security.SecurityMiddleware',         # Security middleware
+    'django.contrib.sessions.middleware.SessionMiddleware',  # Session middleware (ensure this is included)
+    'django.middleware.common.CommonMiddleware',             # Common middleware
+    'django.middleware.csrf.CsrfViewMiddleware',             # CSRF protection
+    'django.contrib.auth.middleware.AuthenticationMiddleware', # Authentication middleware
+    'django.contrib.messages.middleware.MessageMiddleware',  # Message middleware
+    'django.middleware.clickjacking.XFrameOptionsMiddleware', # Clickjacking protection
 ]
 
 ROOT_URLCONF = "admin.urls"
@@ -118,13 +150,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "src/static/"
-STATICFILES_DIRS = [
-    BASE_DIR / "static"
-]  # Where your static files live during development
-STATIC_ROOT = (
-    BASE_DIR / "staticfiles"
-)  # Where static files will be collected for production
+# Serve Django's built-in static files (only for admin and API views)
+STATIC_URL = "/static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

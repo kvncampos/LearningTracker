@@ -64,3 +64,40 @@ a:hover {
         --hover-color: #084298;
     }
 }
+
+
+.calendar {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.calendar_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: #f5f5f5;
+}
+
+.calendar_weekdays, .calendar_content {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+.calendar_content div {
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.today {
+    background-color: #0d6efd;
+    color: white;
+    border-radius: 50%;
+}
+
+.blank {
+    visibility: hidden;
+}
