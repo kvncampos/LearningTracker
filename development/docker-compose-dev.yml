@@ -1,13 +1,33 @@
-# development/docker-compose.yml
 services:
-  web:
+  backend:
     build:
       context: ..
-      dockerfile: development/Dockerfile.dev
-    ports:
-      - "8000:8000"
+      dockerfile: development/Dockerfile.backend.dev
     volumes:
       - ../backend:/app
+      - ../pyproject.toml:/app/pyproject.toml
+      - ../poetry.lock:/app/poetry.lock
+      - dev_db:/app/db
+    command:
+      [
+        "sh",
+        "-c",
+        "python manage.py migrate && python manage.py create_default_superuser --username admin --email admin@example.com --password $ADMIN_PASSWORD && python manage.py runserver 0.0.0.0:8000",
+      ]
+    ports:
+      - "8000:8000"
     env_file:
       - ../.env
-    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: development/Dockerfile.frontend.dev
+    volumes:
+      - ../frontend:/app
+    ports:
+      - "3000:3000"
+    command: ["npm", "start"]
+
+volumes:
+  dev_db:

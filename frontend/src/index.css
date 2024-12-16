@@ -15,27 +15,3 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
-
-.react-calendar {
-  max-width: 100%;
-  background-color: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.react-calendar__tile {
-  text-align: center;
-  padding: 10px;
-  border-radius: 6px;
-  transition: background-color 0.2s ease-in-out;
-}
-
-.react-calendar__tile--active {
-  background-color: #0d6efd;
-  color: white;
-}
-
-.react-calendar__tile--active:hover {
-  background-color: #0b5ed7;
-}

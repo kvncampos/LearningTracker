@@ -1,0 +1,13 @@
+# Ignore frontend/node_modules
+frontend/node_modules/
+backend/db.sqlite3
+
+# Ignore any build artifacts or temporary files
+*.log
+*.pyc
+*.pyo
+__pycache__/
+
+# Optional: Ignore `.git` if not needed in the build context
+.git
+.ruff*

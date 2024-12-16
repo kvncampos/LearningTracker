@@ -10,9 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-from pathlib import Path
-import sys
 import os
+from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-@u0(z0*$x2ct7kg%14f!*z8jcxiuyzndqb5myv1rr730b*4*6$"
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -42,46 +41,50 @@ INSTALLED_APPS = [
     "rest_framework",
     "learningtracker",
     "corsheaders",
+    "django_filters",
+    "drf_spectacular",
 ]
 
 # ------------------------------------
 # CORS Settings
 # ------------------------------------
 # Determine the environment (default to 'development')
-DJANGO_ENV = os.getenv('DJANGO_ENV', 'development')
+DJANGO_ENV = os.getenv("DJANGO_ENV", "development")
 
 # CORS Settings
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:3000',
+    "http://localhost:3000",
 ]
-
-CSRF_COOKIE_SECURE = False  # Only True if using HTTPS
-CSRF_COOKIE_SAMESITE = 'None'  # Allow cross-origin requests
+CSRF_COOKIE_SECURE = False
+CORS_ORIGIN_ALLOW_ALL = False
 CSRF_COOKIE_HTTPONLY = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
+    "http://localhost:3000",
 ]
+CORS_ALLOWED_ORIGIN_REGEXES = [r"^http://localhost:3000$"]
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = False
 
 # Session Settings
-SESSION_COOKIE_AGE = 5 * 60 if DJANGO_ENV == 'production' else 30 * 60
+SESSION_COOKIE_AGE = 5 * 60 if DJANGO_ENV == "production" else 30 * 60
 
 # Expire the session when the browser is closed
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # Use Django’s session-based authentication
-SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 SESSION_SAVE_EVERY_REQUEST = True  # Reset the session timeout on each request
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',                 # CORS middleware
-    'django.middleware.security.SecurityMiddleware',         # Security middleware
-    'django.contrib.sessions.middleware.SessionMiddleware',  # Session middleware (ensure this is included)
-    'django.middleware.common.CommonMiddleware',             # Common middleware
-    'django.middleware.csrf.CsrfViewMiddleware',             # CSRF protection
-    'django.contrib.auth.middleware.AuthenticationMiddleware', # Authentication middleware
-    'django.contrib.messages.middleware.MessageMiddleware',  # Message middleware
-    'django.middleware.clickjacking.XFrameOptionsMiddleware', # Clickjacking protection
+    "corsheaders.middleware.CorsMiddleware",  # CORS middleware
+    "django.middleware.security.SecurityMiddleware",  # Security middleware
+    "django.contrib.sessions.middleware.SessionMiddleware",  # Session middleware (ensure this is included)
+    "django.middleware.common.CommonMiddleware",  # Common middleware
+    "django.middleware.csrf.CsrfViewMiddleware",  # CSRF protection
+    "django.contrib.auth.middleware.AuthenticationMiddleware",  # Authentication middleware
+    "django.contrib.messages.middleware.MessageMiddleware",  # Message middleware
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",  # Clickjacking protection
 ]
 
 ROOT_URLCONF = "admin.urls"
@@ -134,6 +137,17 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
@@ -158,10 +172,10 @@ STATIC_URL = "/static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-if "pytest" in sys.modules:
+if os.getenv("DJANGO_TESTING", False):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": ":memory:",
+            "NAME": "./db/db.sqlite3",
         }
     }

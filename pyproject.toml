@@ -1,3 +1,6 @@
+[project]
+requires-python = ">=3.10"
+
 [tool.poetry]
 name = "learningtracker"
 version = "0.1.0"
@@ -7,15 +10,15 @@ readme = "README.md"
 packages = [{include = "learningtracker", from = "backend"}]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
 django = "^5.1.2"
-invoke = "^2.2.0"
 psycopg2-binary = "^2.9.10"
 djangorestframework = "^3.15.2"
 python-dotenv = "^1.0.1"
-ruff = "^0.7.3"
-black = "^24.10.0"
 django-cors-headers = "^4.6.0"
+django-filter = "^24.3"
+drf-spectacular = "^0.28.0"
+mypy = "^1.13.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -24,7 +27,49 @@ pytest-django = "^4.9.0"
 pytest-cov = "^6.0.0"
 pytest-mock = "^3.14.0"
 pytest-factoryboy = "^2.7.0"
+ruff = "^0.7.3"
+black = "^24.10.0"
+invoke = "^2.2.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "admin.settings"
+pythonpath = ["backend"]
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+testpaths = ["backend/tests"]
+markers = [
+    "slow: marks tests as slow",
+    "db: marks database-related tests"
+]
+
+[tool.coverage.run]
+omit = [
+    "backend/admin/*",
+    "backend/manage.py",
+    "backend/learningtracker/migrations/*",
+    "backend/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __str__",
+    "if __name__ == '__main__'",
+]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # Enable essential linting and import sorting
+exclude = ["backend/admin/*", "tasks.py"] #ignore linting
+ignore = ["E226"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]

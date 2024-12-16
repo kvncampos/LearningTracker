@@ -1,9 +1,8 @@
-# tasks.py
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 from invoke import task
-
 
 # Load environment variables from .env file
 load_dotenv()
@@ -12,40 +11,24 @@ load_dotenv()
 # CONSTANT VARS
 # ------------------------------------------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
-DJANGO_ENV = os.getenv('DJANGO_ENV', 'development')
+DJANGO_ENV = os.getenv("DJANGO_ENV", "development")
 # Configuration
-DOCKER_FILE = "docker-compose-dev.yml" if DJANGO_ENV == "development" else "docker-compose.yml"
-DOCKER_COMPOSE_FILE = Path("development") / DOCKER_FILE
-FRONTEND_DIR = 'frontend'
-BACKEND_DIR = 'backend'
-SERVICE_NAME = "web"  # Ensure this matches your docker-compose.yml service name
-CONTAINER_NAME = "dev-learningtracker-web-1"
-DB_CONTAINER = "dev-learningtracker-db"
-LOCAL_RUFF_EXCLUDE = (
-    "./backend/tests/*,./backend/learningtracker/migrations,tasks.py,./backend/admin/settings.py"
+DOCKER_FILE = (
+    "docker-compose-dev.yml" if DJANGO_ENV == "development" else "docker-compose.yml"
 )
+DOCKER_COMPOSE_FILE = Path("development") / DOCKER_FILE
+CONTAINER_CHOICES = ["frontend", "backend"]
+BACKEND_CONTAINER = "learningtracker-backend-1"
+BACKEND_DIR = "backend"
+FRONTEND_DIR = "frontend"
+DB_CONTAINER = "dev-learningtracker-db"
+LOCAL_RUFF_EXCLUDE = "./backend/tests/*,./backend/learningtracker/migrations,tasks.py,./backend/admin/settings.py"
+PROJECT_NAME = os.getenv("PROJECT_NAME", "development")
+
+
 ################################################################################
 #                               Backend Tasks
 ################################################################################
-
-@task
-def build_backend(ctx):
-    """Build the Django backend Docker image."""
-    print("Building Django backend Docker image...")
-    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} build", pty=True)
-
-@task
-def start_backend(ctx):
-    """Start the Django backend and database."""
-    print("Starting Django backend...")
-    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} up -d", pty=True)
-
-@task
-def stop_backend(ctx):
-    """Stop the Django backend."""
-    print("Stopping Django backend...")
-    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} down", pty=True)
-
 @task
 def start_backend_debug(ctx):
     """
@@ -55,63 +38,45 @@ def start_backend_debug(ctx):
         print("Starting Django backend in debug mode...")
         ctx.run("python manage.py runserver 0.0.0.0:8000", pty=True)
 
+
 @task
 def createsuperuser(ctx):
-    """Create a Django superuser."""
-    with ctx.cd(BACKEND_DIR):
-        ctx.run("python manage.py createsuperuser", pty=True)
+    """Create a Django superuser inside the Docker container."""
+    print(f"Creating superuser in container: {BACKEND_CONTAINER}")
+    ctx.run(
+        f"docker exec -it {BACKEND_CONTAINER} python manage.py createsuperuser",
+        pty=True,
+    )
+
 
 @task
-def backend_shell(ctx):
-    """Open a Django shell in the Docker container."""
-    ctx.run("docker-compose exec backend python manage.py shell", pty=True)
+def makemigrations(ctx, app: str | None = None):
+    """Run 'python manage.py makemigrations' for the learningtracker app inside the Docker container."""
+    base_command = (
+        f"docker exec -it {BACKEND_CONTAINER} python /app/manage.py makemigrations"
+    )
+    if app:
+        base_command += f" {app}"
+    ctx.run(base_command, pty=True)
 
-################################################################################
-#                               FrontEnd Tasks
-################################################################################
-@task
-def install_frontend(ctx):
-    """Install frontend dependencies."""
-    with ctx.cd(FRONTEND_DIR):
-        print("Installing frontend dependencies...")
-        ctx.run("npm install", pty=True)
 
 @task
-def start_frontend(ctx):
-    """Start the React frontend development server."""
-    with ctx.cd(FRONTEND_DIR):
-        print("Starting React frontend...")
-        ctx.run("npm start", pty=True)
+def migrate(ctx):
+    """Run 'python manage.py migrate' inside the Docker container."""
+    ctx.run(
+        f"docker exec -it {BACKEND_CONTAINER} python /app/manage.py migrate",
+        pty=True,
+    )
+
 
 @task
-def build_frontend(ctx):
-    """Build the React frontend for production."""
-    with ctx.cd(FRONTEND_DIR):
-        print("Building React frontend...")
-        ctx.run("npm run build", pty=True)
+def showmigrations(ctx):
+    """Show migrations status inside the Docker container."""
+    ctx.run(
+        f"docker-compose -f {DOCKER_COMPOSE_FILE} -p {PROJECT_NAME} exec {BACKEND_CONTAINER} python /app/manage.py showmigrations",
+        pty=True,
+    )
 
-@task
-def stop_frontend(ctx):
-    """Stop the React frontend."""
-    print("Stopping React frontend...")
-    # Find and kill the process running on port 3000 (React dev server)
-    ctx.run("lsof -t -i :3000 | xargs kill -9", warn=True, pty=True)
-
-@task
-def start_frontend_debug(ctx):
-    """
-    Start React frontend in debug mode (with hot-reloading).
-    """
-    with ctx.cd(FRONTEND_DIR):
-        print("Starting React frontend in debug mode...")
-        ctx.run("npm start", pty=True)
-
-@task
-def clean_frontend(ctx):
-    """Clean the frontend build directory."""
-    with ctx.cd(FRONTEND_DIR):
-        print("Cleaning frontend build directory...")
-        ctx.run("rm -rf build", pty=True)
 
 ################################################################################
 #                           Full Project Tasks
@@ -120,110 +85,162 @@ def clean_frontend(ctx):
 def start(ctx):
     """Start both the Django backend and React frontend."""
     print("Starting backend and frontend...")
-    start_backend(ctx)
-    start_frontend(ctx)
+    ctx.run(
+        f"docker-compose -f {DOCKER_COMPOSE_FILE} -p {PROJECT_NAME} up -d", pty=True
+    )
+
+
+@task
+def debug(ctx):
+    """Start both the Django backend and React frontend."""
+    print("Starting backend and frontend...")
+    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} -p {PROJECT_NAME} up", pty=True)
+
 
 @task
 def stop(ctx):
     """Stop both the Django backend and React frontend."""
     print("Stopping backend and frontend...")
-    stop_backend(ctx)
-    stop_frontend(ctx)
+    ctx.run(f"docker-compose -f {DOCKER_COMPOSE_FILE} -p {PROJECT_NAME} down", pty=True)
+
 
 @task
 def build(ctx):
     """Build both the Django backend and React frontend."""
-    build_backend(ctx)
-    build_frontend(ctx)
-
-@task
-def install(ctx):
-    """Install dependencies for both backend and frontend."""
-    install_frontend(ctx)
-    print("Dependencies installed for frontend.")
-
-@task
-def debug(ctx):
-    """
-    Start both Django backend and React frontend in debug mode.
-    """
-    print("Starting both backend and frontend in debug mode...")
-    ctx.run("invoke start-backend-debug & invoke start-frontend-debug", pty=True)
-
-# ------------------------------------------------------------------------------------
-# DOCKER CLI COMMANDS
-# ------------------------------------------------------------------------------------
-
-@task
-def cli(ctx, shell="/bin/bash"):
-    """Open a shell in the Docker container 'development-movies-1'."""
-    ctx.run(f"docker exec -it {CONTAINER_NAME} {shell}", pty=True)
-
-@task
-def makemigrations(ctx, app: str= None):
-    """Run 'python manage.py makemigrations' for the learningtracker app inside the Docker container."""
-    base_command = f"docker-compose -f {DOCKER_COMPOSE_FILE} exec {SERVICE_NAME} python manage.py makemigrations"
-    if app:
-        base_command += app
+    print(
+        f"Building Docker Images for frontend and backend services using {DOCKER_COMPOSE_FILE}..."
+    )
     ctx.run(
-        base_command,
+        f"docker-compose -f {DOCKER_COMPOSE_FILE} -p {PROJECT_NAME} build", pty=True
+    )
+
+
+@task
+def destroy(ctx, remove_images=False, remove_volumes=False):
+    """
+    Destroy all containers, networks, and volumes related to the Docker Compose project.
+    Optionally remove associated images and dangling volumes.
+    """
+    print(
+        f"Stopping and removing Docker Compose containers for project {PROJECT_NAME}..."
+    )
+    ctx.run(
+        f"docker-compose -f {DOCKER_COMPOSE_FILE} -p {PROJECT_NAME} down --volumes --remove-orphans",
         pty=True,
     )
 
-@task
-def migrate(ctx):
-    """Run 'python manage.py migrate' inside the Docker container."""
-    ctx.run(
-        f"docker-compose -f {DOCKER_COMPOSE_FILE} exec {SERVICE_NAME} python /app/manage.py migrate",
-        pty=True,
-    )
+    # Optional: Remove images associated with this project
+    if remove_images:
+        print("Removing Docker images associated with the project...")
+        ctx.run(
+            f"docker images --filter=reference='{PROJECT_NAME}_*' -q | xargs -r docker rmi"
+        )
 
-@task
-def showmigrations(ctx):
-    """Show migrations status inside the Docker container."""
-    ctx.run(
-        f"docker-compose -f {DOCKER_COMPOSE_FILE} exec {SERVICE_NAME} python /app/manage.py showmigrations",
-        pty=True,
-    )
+    # Optional: Remove dangling volumes
+    if remove_volumes:
+        print("Removing dangling Docker volumes associated with the project...")
+        ctx.run(
+            f"docker volume ls -q --filter=name='{PROJECT_NAME}_*' | xargs -r docker volume rm"
+        )
 
-# ------------------------------------------------------------------------------------
-# LOCAL TESTS AND LINT
-# ------------------------------------------------------------------------------------
-@task
-def ruff(ctx, fix=False):
-    """Run Ruff linter (use --fix to auto-fix)."""
-    command = f"ruff check ."
-    if fix:
-        command += " --fix"
-    ctx.run(command, pty=True)
+    print("Docker Compose project resources have been destroyed.")
+
+
+################################################################################
+#                           Test & Linkt Project Tasks
+################################################################################
 
 
 @task
-def black(ctx):
-    """Run Black formatter."""
-    ctx.run("black .")
-
-
-@task
-def pytest(ctx, coverage=False, testname=None):
+def ruff(ctx, fix: bool = False, filename: str | None = None):
     """
-    Run tests with pytest.
+    Run Ruff on Python files in the project.
 
     Args:
-        coverage (bool): If True, run with code coverage.
-        testname (str): A string to filter tests by name.
+        ctx: Invoke context.
+        filename (str): Specific file or directory to check (default: backend/).
+        fix (bool): Whether to auto-fix issues (default: False).
     """
-    # Base command
-    command = "pytest"
+    # Default to 'backend/' if no filename is provided
+    target = filename or "backend/"
 
-    # Add coverage option if specified
-    if coverage:
-        command += " --cov=backend --cov-report=term-missing"
+    # Use shorthand '-f' for fix
+    fix_flag = "--fix" if fix else ""
 
-    # Add test name filter if specified
-    if testname:
-        command += f" -k {testname}"
-
-    # Run the command
+    # Build and run the Ruff command
+    command = f"ruff check {target} {fix_flag}"
+    print(f"Running command: {command}")
     ctx.run(command, pty=True)
 
+
+@task
+def black(ctx, filename: str | None = None):
+    """Run Black to format Python files in the project."""
+    print("Running Black on Python files...")
+    command = "black"
+    if filename:
+        command += filename
+    else:
+        command += " ."
+    ctx.run(
+        command,
+        pty=True,
+    )
+
+
+@task
+def pytest(
+    ctx,
+    coverage=False,
+    report_type="term-missing",
+    test_file=None,
+    verbose=False,
+    last_failed=False,
+    disable_warnings=False,
+    max_failures=None,
+):
+    """
+    Run Pytest tests with optional coverage reporting and popular flags.
+
+    Args:
+        coverage (bool): If True, run tests with coverage reporting.
+        report_type (str): Coverage report type (default: 'term-missing').
+        test_file (str): Path to a specific test file to run (e.g., 'test_models.py').
+        verbose (bool): If True, increase verbosity (equivalent to pytest -v).
+        last_failed (bool): If True, re-run only the last failed tests.
+        disable_warnings (bool): If True, suppress warnings during test run.
+        max_failures (int): Maximum number of failures before stopping the test run.
+    """
+    print("Running Pytest tests...")
+
+    # Base pytest command
+    command = "pytest"
+
+    # Add coverage options if enabled
+    if coverage:
+        command += f" --cov=backend --cov-report={report_type}"
+
+    # Add specific test file if provided
+    if test_file:
+        command += f" backend/tests/{test_file}"
+
+    # Additional popular pytest options
+    if verbose:
+        command += " -v"  # Increase verbosity
+    if last_failed:
+        command += " --lf"  # Re-run last failed tests
+    if disable_warnings:
+        command += " -p no:warnings"  # Suppress warnings
+    if max_failures is not None:
+        command += f" --maxfail={max_failures}"  # Limit failures before stopping
+
+    print(f"Executing: {command}")
+    ctx.run(command, pty=True)
+
+
+@task
+def test_and_lint(ctx):
+    ruff(ctx, fix=True)
+    black(ctx)
+    pytest(ctx)
+    print("All Tests and Lint Complete!")
