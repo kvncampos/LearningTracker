@@ -6,7 +6,7 @@ from learningtracker.models import DailyLearning
 
 
 @pytest.fixture
-def test_user(db) -> User:
+def create_test_user(db) -> User:
     """
     Create a test user for the test suite.
     """
@@ -16,7 +16,7 @@ def test_user(db) -> User:
 
 
 @pytest.fixture
-def daily_learning(test_user: User) -> Callable[..., DailyLearning]:
+def create_learning_entry(create_test_user: User) -> Callable[..., DailyLearning]:
     """
     A factory function for creating `DailyLearning` instances dynamically.
 
@@ -30,7 +30,7 @@ def daily_learning(test_user: User) -> Callable[..., DailyLearning]:
 
     def _create_daily_learning(**kwargs: Any) -> DailyLearning:
         defaults = {
-            "user": test_user,
+            "user": create_test_user,
             "date": "2022-01-01",
             "learning_type": DailyLearning.Topics.PYTHON,
             "description": "This is a test learning.",

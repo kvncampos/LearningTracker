@@ -11,16 +11,16 @@ class DailyLearningFilter(django_filters.FilterSet):
         label="Exact Date",
         help_text="Filter entries by an exact date (YYYY-MM-DD).",
     )
-    start_date = django_filters.DateFilter(
+    from_date = django_filters.DateFilter(
         field_name="date",
         lookup_expr="gte",
-        label="Start Date",
+        label="From Date",
         help_text="Filter entries on or after this date (YYYY-MM-DD).",
     )
-    end_date = django_filters.DateFilter(
+    to_date = django_filters.DateFilter(
         field_name="date",
         lookup_expr="lte",
-        label="End Date",
+        label="To Date",
         help_text="Filter entries on or before this date (YYYY-MM-DD).",
     )
     learning_type = django_filters.CharFilter(
@@ -38,4 +38,4 @@ class DailyLearningFilter(django_filters.FilterSet):
 
     class Meta:
         model = DailyLearning
-        fields = ["date", "start_date", "end_date", "learning_type", "description"]
+        fields = ["date", "from_date", "to_date", "learning_type", "description"]

@@ -30,6 +30,24 @@ PROJECT_NAME = os.getenv("PROJECT_NAME", "development")
 #                               Backend Tasks
 ################################################################################
 @task
+def shell(ctx, container_name=""):
+    """
+    Log into the Docker container and start the Django ORM shell.
+
+    Args:
+        ctx: Invoke context.
+        container_name (str): The name or ID of the Docker container.
+    """
+    if container_name in BACKEND_CONTAINER:
+        # Log into the Docker container
+        ctx.run(f"docker exec -it {BACKEND_CONTAINER} python manage.py shell", pty=True)
+    elif container_name not in CONTAINER_CHOICES:
+        print(f"Invalid container name. Must be {CONTAINER_CHOICES}")
+    else:
+        ctx.run(f"docker exec -it learningtracker-{container_name}-1 bash", pty=True)
+
+
+@task
 def start_backend_debug(ctx):
     """
     Start Django in debug mode (without Docker) for local development.

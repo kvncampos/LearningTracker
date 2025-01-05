@@ -1,24 +1,93 @@
 from datetime import date, timedelta
 
 import pytest
-from learningtracker.models import DailyLearning
+from learningtracker.models import DailyLearning, Tag
 from learningtracker.serializers import DAILY_LEARNING_ERRORS, DailyLearningSerializer
 from rest_framework.serializers import ValidationError
 
 
-def test_dailylearning_serializer(daily_learning):
+#################################################################
+#                   VALIDATE VALID DATA
+#################################################################
+def test_dailylearning_serializer(create_learning_entry):
     # Create a DailyLearning instance using the factory
-    instance = daily_learning()
+    instance = create_learning_entry()
+
+    # Add tags to the instance
+    tag_python = Tag.objects.create(user=instance.user, name="Python")
+    instance.tags.add(tag_python)
 
     # Serialize the instance
     serializer = DailyLearningSerializer(instance)
 
     # Assertions
     assert isinstance(instance, DailyLearning)
+    assert isinstance(tag_python, Tag)
     assert serializer.data["id"] == instance.id
     assert serializer.data["date"] == str(instance.date)
     assert serializer.data["learning_type"] == instance.learning_type
     assert serializer.data["description"] == instance.description
+    assert "tags" in serializer.data
+    assert serializer.data["tags"] == [{"id": tag_python.id, "name": "Python"}]
+
+
+@pytest.mark.django_db
+def test_dailylearning_serializer_is_valid_and_saves(create_test_user):
+    data = {
+        "date": date.today().isoformat(),
+        "learning_type": "Python",
+        "description": "Learned about Python serializers.",
+        "tags": [{"name": "Python"}],
+    }
+
+    # Initialize the serializer with valid data
+    serializer = DailyLearningSerializer(data=data, context={"request": None})
+
+    # Ensure the serializer is valid
+    assert serializer.is_valid(), serializer.errors
+
+    # Save the validated data
+    instance = serializer.save(user=create_test_user)
+
+    # Assertions to ensure the instance is saved correctly
+    assert instance.user == create_test_user
+    assert instance.date.isoformat() == data["date"]
+    assert instance.learning_type == data["learning_type"]
+    assert instance.description == data["description"]
+    assert DailyLearning.objects.filter(id=instance.id).exists()
+    assert instance.tags.count() == 1
+    assert instance.tags.first().name == "Python"
+
+
+@pytest.mark.django_db
+def test_dailylearning_serializer_updates_instance(create_learning_entry):
+    instance = create_learning_entry()  # Create an initial instance
+
+    # Add tags to the instance
+    tag_python = Tag.objects.create(user=instance.user, name="Python")
+    instance.tags.add(tag_python)
+
+    update_data = {
+        "date": instance.date,
+        "learning_type": "Django",
+        "description": "Updated learning entry.",
+        "tags": [{"name": "Docker"}],  # Replace Python with Docker
+    }
+
+    serializer = DailyLearningSerializer(instance, data=update_data, partial=False)
+
+    # Ensure the serializer is valid
+    assert serializer.is_valid(), serializer.errors
+
+    # Save the updated data
+    updated_instance = serializer.save()
+
+    # Assertions
+    assert updated_instance.date == update_data["date"]
+    assert updated_instance.learning_type == update_data["learning_type"]
+    assert updated_instance.description == update_data["description"]
+    assert updated_instance.tags.count() == 1
+    assert updated_instance.tags.first().name == "Docker"
 
 
 #################################################################
@@ -30,12 +99,14 @@ def test_dailylearning_serializer_empty_object():
         "date": None,
         "learning_type": None,
         "description": None,
+        "tags": [],
     }
     serializer = DailyLearningSerializer(data=data)
     assert not serializer.is_valid()
     assert "date" in serializer.errors
     assert "learning_type" in serializer.errors
     assert "description" in serializer.errors
+    assert len(serializer.errors) > 0
 
 
 @pytest.mark.parametrize(
@@ -60,7 +131,7 @@ def test_dailylearning_serializer_empty_object():
         ),
         # Invalid date format
         (
-            "invalid-date",
+            "01-01-2022",
             False,
             ["Date has wrong format. Use one of these formats instead: YYYY-MM-DD."],
         ),
@@ -71,6 +142,7 @@ def test_dailylearning_serializer_date_validation(test_date, is_valid, expected_
         "date": test_date,
         "learning_type": "Python",
         "description": "This is a test learning.",
+        "tags": [{"name": "Python"}],
     }
     # Act: Initialize the serializer
     serializer = DailyLearningSerializer(data=data, context={"request": None})
@@ -85,12 +157,11 @@ def test_dailylearning_serializer_date_validation(test_date, is_valid, expected_
 
 
 def test_dailylearning_serializer_invalid_learning_type():
-    # Data with an invalid date
     data = {
-        "id": 1,
-        "date": "2000-01-01",  # Incorrect format
+        "date": "2000-01-01",
         "learning_type": "Invalid",
         "description": "This is a test learning.",
+        "tags": [{"name": "Python"}],
     }
 
     # Initialize the serializer with data
@@ -98,62 +169,22 @@ def test_dailylearning_serializer_invalid_learning_type():
 
     # Ensure the serializer is invalid
     assert not serializer.is_valid()
-
-    # Check that the correct error message is raised for the date field
     assert "learning_type" in serializer.errors
     assert serializer.errors["learning_type"] == ['"Invalid" is not a valid choice.']
 
 
 def test_dailylearning_serializer_invalid_short_description():
-    # Arrange: Data with a future date
     data = {
-        "id": 1,
         "date": "2000-01-01",
         "learning_type": "Python",
         "description": "ABC",  # Under 5 Characters
+        "tags": [{"name": "Python"}],
     }
 
-    # Act: Initialize the serializer
     serializer = DailyLearningSerializer(data=data)
 
-    # Assertions
     assert not serializer.is_valid()
-
-    # Assert: ValidationError is raised for future date
     with pytest.raises(
         ValidationError, match=DAILY_LEARNING_ERRORS["invalid_description"]
     ):
         serializer.is_valid(raise_exception=True)
-
-
-def test_dailylearning_serializer_validation_errors():
-    data = {
-        "id": 1,
-        "date": None,
-        "short_description": "",
-        "description": "",
-    }
-    serializer = DailyLearningSerializer(data=data)
-    serializer.is_valid()
-    validation_errors = serializer.errors
-    assert len(validation_errors) > 0
-
-
-# @pytest.mark.django_db
-# def test_dailylearning_serializer_save(daily_learning):
-#     serializer = DailyLearningSerializer(daily_learning)
-#     serializer.save()
-#     assert DailyLearning.objects.count() == 1
-
-
-# def test_dailylearning_serializer_update():
-#     daily_learning = DailyLearning.objects.create(
-#         user="testuser",
-#         date="2022-01-01",
-#         learning_type="Test Learning",
-#         description="This is a test learning.",
-#     )
-#     serializer = DailyLearningSerializer(daily_learning)
-#     serializer.data["learning_type"] = "SQL"
-#     serializer.save()
-#     assert daily_learning.learning_type == "SQL"

@@ -1,24 +1,21 @@
-# backend/learningtracker/serializers.py
 from datetime import date
-from typing import TypedDict
 
 from rest_framework import serializers
 
-from .models import DailyLearning
+from .models import DailyLearning, Tag
+from .utils.error_const import DAILY_LEARNING_ERRORS
 
 
-class DailyLearningErrorDefinitions(TypedDict):
-    invalid_date: str
-    invalid_description: str
-
-
-DAILY_LEARNING_ERRORS: DailyLearningErrorDefinitions = {
-    "invalid_date": "The date cannot be in the future.",
-    "invalid_description": "Description must be at least 5 characters.",
-}
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ["id", "name"]
+        read_only_fields = ["id"]
 
 
 class DailyLearningSerializer(serializers.ModelSerializer):
+    tags = TagSerializer(many=True, required=False)  # Add tags as a nested serializer
+
     class Meta:
         model = DailyLearning
         fields = [
@@ -26,6 +23,7 @@ class DailyLearningSerializer(serializers.ModelSerializer):
             "date",
             "learning_type",
             "description",
+            "tags",
             "created_at",
             "updated_at",
         ]
@@ -42,3 +40,33 @@ class DailyLearningSerializer(serializers.ModelSerializer):
                 DAILY_LEARNING_ERRORS["invalid_description"]
             )
         return value
+
+    def create(self, validated_data):
+        tags_data = validated_data.pop("tags", [])
+        daily_learning = DailyLearning.objects.create(**validated_data)
+
+        # Add tags to the DailyLearning instance
+        for tag_data in tags_data:
+            tag, created = Tag.objects.get_or_create(
+                user=daily_learning.user, **tag_data
+            )
+            daily_learning.tags.add(tag)
+
+        return daily_learning
+
+    def update(self, instance, validated_data):
+        tags_data = validated_data.pop("tags", None)
+
+        # Update fields of DailyLearning
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Handle tags if provided
+        if tags_data is not None:
+            instance.tags.clear()  # Clear existing tags
+            for tag_data in tags_data:
+                tag, created = Tag.objects.get_or_create(user=instance.user, **tag_data)
+                instance.tags.add(tag)
+
+        return instance
