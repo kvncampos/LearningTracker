@@ -1,5 +1,5 @@
-const defaultTitle = 'Become a React Dev';
-const defaultSubtitle = 'Find the React job that fits your skillset.';
+const defaultTitle = 'Learning Tracker App';
+const defaultSubtitle = 'Start your learning journey today!';
 
 const Banner = ({ title = defaultTitle, subtitle = defaultSubtitle }) => {
   return (
