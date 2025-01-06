@@ -1,6 +1,6 @@
 import django_filters
 
-from .models import DailyLearning
+from .models import DailyLearning, Tag
 
 
 class DailyLearningFilter(django_filters.FilterSet):
@@ -39,3 +39,19 @@ class DailyLearningFilter(django_filters.FilterSet):
     class Meta:
         model = DailyLearning
         fields = ["date", "from_date", "to_date", "learning_type", "description"]
+
+
+class TagFilter(django_filters.FilterSet):
+    name = django_filters.CharFilter(
+        label="name",
+        lookup_expr="icontains",
+        help_text="Filter entries by words in the tags. (case-insensitive match).",
+    )
+    user = django_filters.NumberFilter(
+        field_name="user__id",
+        help_text="Filter entries by user id.",
+    )
+
+    class Meta:
+        model = Tag
+        fields = ["name", "user"]

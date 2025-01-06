@@ -216,6 +216,7 @@ def pytest(
     last_failed=False,
     disable_warnings=False,
     max_failures=None,
+    debug=False,
 ):
     """
     Run Pytest tests with optional coverage reporting and popular flags.
@@ -228,6 +229,7 @@ def pytest(
         last_failed (bool): If True, re-run only the last failed tests.
         disable_warnings (bool): If True, suppress warnings during test run.
         max_failures (int): Maximum number of failures before stopping the test run.
+        debug (bool): Enables Print in Tests
     """
     print("Running Pytest tests...")
 
@@ -251,6 +253,8 @@ def pytest(
         command += " -p no:warnings"  # Suppress warnings
     if max_failures is not None:
         command += f" --maxfail={max_failures}"  # Limit failures before stopping
+    if debug:
+        command += " -s"
 
     print(f"Executing: {command}")
     ctx.run(command, pty=True)

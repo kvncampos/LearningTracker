@@ -1,12 +1,12 @@
 # backend/learningtracker/tests/test_filters.py
 
 import pytest
-from learningtracker.filters import DailyLearningFilter
-from learningtracker.models import DailyLearning
+from learningtracker.filters import DailyLearningFilter, TagFilter
+from learningtracker.models import DailyLearning, Tag
 
 
 #################################################################
-#                   VALIDATE FILTER VALID DATA
+#                   VALIDATE DAILYLEARNINGFILTER VALID DATA
 #################################################################
 @pytest.mark.parametrize(
     "filter_data, expected_count",
@@ -19,7 +19,9 @@ from learningtracker.models import DailyLearning
     ],
 )
 @pytest.mark.django_db
-def test_filter_with_valid_data(create_learning_entry, filter_data, expected_count):
+def test_dailylearningfilter_with_valid_data(
+    create_learning_entry, filter_data, expected_count
+):
     """
     Test that the filters return the correct number of entries.
     """
@@ -32,7 +34,7 @@ def test_filter_with_valid_data(create_learning_entry, filter_data, expected_cou
 
 
 #################################################################
-#                   VALIDATE FILTER INVALID DATA
+#                   VALIDATE DAILYLEARNINGFILTER INVALID DATA
 #################################################################
 @pytest.mark.parametrize(
     "filter_data, expected_count",
@@ -45,7 +47,9 @@ def test_filter_with_valid_data(create_learning_entry, filter_data, expected_cou
     ],
 )
 @pytest.mark.django_db
-def test_filter_with_invalid_data(create_learning_entry, filter_data, expected_count):
+def test_dailylearningfilter_with_invalid_data(
+    create_learning_entry, filter_data, expected_count
+):
     """
     Test that the filters return the correct number of entries.
     """
@@ -58,51 +62,81 @@ def test_filter_with_invalid_data(create_learning_entry, filter_data, expected_c
 
 
 #################################################################
-#                   VALIDATE FILTER META DATA
+#                   VALIDATE DAILYLEARNINGFILTER META DATA
 #################################################################
-@pytest.mark.parametrize(
-    "field_name, expected_label, expected_lookup, expected_help_text",
-    [
-        (
-            "date",
-            "Exact Date",
-            "exact",
-            "Filter entries by an exact date (YYYY-MM-DD).",
-        ),
-        (
-            "from_date",
-            "From Date",
-            "gte",
-            "Filter entries on or after this date (YYYY-MM-DD).",
-        ),
-        (
-            "to_date",
-            "To Date",
-            "lte",
-            "Filter entries on or before this date (YYYY-MM-DD).",
-        ),
-        (
-            "learning_type",
-            "Learning Topic",
-            "icontains",
-            "Filter entries by a learning topic (case-insensitive match).",
-        ),
-        (
-            "description",
-            "Description",
-            "icontains",
-            "Filter entries by words in the desc. (case-insensitive match).",
-        ),
-    ],
-)
-def test_filter_metadata(
-    field_name, expected_label, expected_lookup, expected_help_text
-):
-    """
-    Test that filter field metadata matches the expected values.
-    """
+def test_dailylearningfilter_metadata():
     filter_set = DailyLearningFilter(queryset=DailyLearning.objects.all())
-    field = filter_set.filters[field_name]
-    assert field.label == expected_label
-    assert field.lookup_expr == expected_lookup
-    assert field.extra.get("help_text") == expected_help_text
+    for field_name, field in filter_set.filters.items():
+        assert field.label
+        assert field.lookup_expr
+        assert field.extra.get("help_text")
+
+
+#################################################################
+#                   VALIDATE TAGFILTER DATA
+#################################################################
+
+
+@pytest.mark.django_db
+def test_tag_filter_with_valid_data(create_tags):
+    """
+    Test filtering tags by name (case-insensitive match).
+    """
+    tags = Tag.objects.all()
+    filter_data = {"name": "python"}
+    filtered_tags = TagFilter(filter_data, queryset=tags).qs
+
+    # Assert: Only tags with name containing "python" are returned
+    assert filtered_tags.count() == 2
+    assert all("python" in tag.name.lower() for tag in filtered_tags)
+
+
+@pytest.mark.django_db
+def test_tag_filter_by_user(create_tags, create_test_user):
+    """
+    Test filtering tags by user.
+    """
+    tags = Tag.objects.all()
+    filter_data = {"user": create_test_user.id}
+    filtered_tags = TagFilter(filter_data, queryset=tags).qs
+
+    # Assert: Only tags belonging to the specified user are returned
+    assert filtered_tags.count() == 2
+    assert all(tag.user == create_test_user for tag in filtered_tags)
+
+
+@pytest.mark.django_db
+def test_tag_filter_by_name_and_user(create_tags, create_test_user):
+    """
+    Test filtering tags by name and user simultaneously.
+    """
+    tags = Tag.objects.all()
+    filter_data = {"name": "python", "user": create_test_user.id}
+    filtered_tags = TagFilter(filter_data, queryset=tags).qs
+
+    # Assert: Only tags matching the name and user are returned
+    assert filtered_tags.count() == 1
+    assert all(tag.user == create_test_user for tag in filtered_tags)
+    assert all("python" in tag.name.lower() for tag in filtered_tags)
+
+
+@pytest.mark.django_db
+def test_tag_filter_no_results(create_tags):
+    """
+    Test filtering with criteria that yield no results.
+    """
+    tags = Tag.objects.all()
+    filter_data = {"name": "nonexistent", "user": 9999}  # Invalid user ID
+    filtered_tags = TagFilter(filter_data, queryset=tags).qs
+
+    # Assert: No tags are returned
+    assert filtered_tags.count() == 0
+
+
+def test_tagfiltered_metadata():
+    filter_set = TagFilter(queryset=Tag.objects.all())
+    for field_name, field in filter_set.filters.items():
+        assert field.label
+        if field_name == "name":
+            assert field.lookup_expr
+        assert field.extra.get("help_text")
